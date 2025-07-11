@@ -5,6 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from typing import List
 import re
 from RAG import PersianRAGSystem
+from LLM import PersianLLMGenerator, ConversationManager
 
 class App:
     def __init__(self):
@@ -234,18 +235,95 @@ class App:
 
             rag_system = get_rag_system()
             rag_system.add_documents(text_chunks)
-
+            
             progress_bar.progress(100)
             status_text.text("سیستم RAG آماده است!")
-            st.write(rag_system)
+            
+            # ✅ مرحله جدید: LLM Integration
+            st.subheader("💬 پرسش و پاسخ هوشمند")
+            
+            # ایجاد session state برای تاریخچه
+            if 'conversation_manager' not in st.session_state:
+                st.session_state.conversation_manager = ConversationManager()
+            
+            # دریافت سوال از کاربر
+            user_question = st.text_input("🤔 سوال خود را در مورد محتوای PDF بپرسید:")
+            
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                ask_button = st.button("❓ پرسیدن", type="primary")
+            with col2:
+                clear_button = st.button("🗑️ پاک کردن تاریخچه")
+            
+            if clear_button:
+                st.session_state.conversation_manager.clear_history()
+                st.success("✅ تاریخچه مکالمات پاک شد")
+            
+            if ask_button and user_question:
+                with st.spinner("🤖 در حال پردازش سوال..."):
+                    # دریافت LLM generator
+                    llm_generator = get_llm_generator()
+                    
+                    # دریافت تاریخچه اخیر
+                    recent_history = st.session_state.conversation_manager.get_recent_history()
+                    
+                    # پردازش سوال با RAG
+                    response = llm_generator.query_with_rag(
+                        rag_system=rag_system,
+                        query=user_question,
+                        top_k=5,
+                        conversation_history=recent_history
+                    )
+                    
+                    # نمایش پاسخ
+                    st.subheader("🎯 پاسخ:")
+                    st.write(response['answer'])
+                    
+                    # نمایش اطلاعات اضافی
+                    if 'model_info' in response:
+                        with st.expander("📊 جزئیات تولید پاسخ"):
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("منابع استفاده شده", response['sources_used'])
+                            with col2:
+                                st.metric("زمان تولید", f"{response['generation_time']}s")
+                            with col3:
+                                st.metric("توکن‌های کل", response['model_info']['tokens_used']['total_tokens'])
+                    
+                    # نمایش منابع مرجع
+                    if 'retrieval_context' in response and response['retrieval_context']:
+                        with st.expander("📚 منابع مرجع"):
+                            for source in response['retrieval_context']:
+                                st.write(f"**منبع {source['source_id']}** (امتیاز: {source['similarity']:.3f})")
+                                st.write(source['preview'])
+                                st.divider()
+                    
+                    # ذخیره در تاریخچه
+                    st.session_state.conversation_manager.add_exchange(
+                        user_question, 
+                        response['answer']
+                    )
+            
+            # نمایش تاریخچه مکالمات
+            if st.session_state.conversation_manager.conversation_history:
+                with st.expander("📜 تاریخچه مکالمات"):
+                    for i, exchange in enumerate(reversed(st.session_state.conversation_manager.conversation_history)):
+                        st.write(f"**سوال {len(st.session_state.conversation_manager.conversation_history)-i}:** {exchange['user']}")
+                        st.write(f"**پاسخ:** {exchange['assistant']}")
+                        st.divider()
             
             # Clean up temporary file
-            file_path.unlink()                     
+            file_path.unlink()                           
 
 @st.cache_resource
 def get_rag_system():
     JINA_API_KEY = "jina_f79a39580af2409c9192df3695351ff6-Up2UwFsKAGW1Az1UoKfK2-bJGzA"  # ✅ دریافت API key
     return PersianRAGSystem(JINA_API_KEY)      # ✅ پاس دادن API key
+
+@st.cache_resource  
+def get_llm_generator():
+    GROQ_API_KEY = "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"  # جایگزین با API key واقعی
+    return PersianLLMGenerator(GROQ_API_KEY)
 
 if __name__ == "__main__":
     app = App()
