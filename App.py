@@ -201,12 +201,23 @@ class App:
         }
         
         return analysis
+    
+    def Grok_API_key(self):
+        api_key = st.sidebar.text_input("Grok API Key", type="password")
+        if not api_key:
+            st.info("Please enter Grok API key to continue.")
+            st.stop()
+        return api_key
 
     def display_app(self):
         st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
         st.title("Persian NotebookLM 📚")
         st.write(self.translations[self.language]['current_language'])
         st.header(self.translations[self.language]['app_title'], divider="red") 
+        Grok_api = self.Grok_API_key()  # دریافت API key از کاربر
+        if Grok_api:
+            st.session_state["grok_api_key"] = Grok_api  # ذخیره در session state
+            
         uploaded_file = st.file_uploader(f"{self.translations[self.language]['select_file']} PDF", type=["pdf"])
         
         if uploaded_file is not None:
@@ -322,7 +333,7 @@ def get_rag_system():
 
 @st.cache_resource  
 def get_llm_generator():
-    GROQ_API_KEY = "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"  # جایگزین با API key واقعی
+    GROQ_API_KEY = st.session_state['grok_api_key']  # جایگزین با API key واقعی
     return PersianLLMGenerator(GROQ_API_KEY)
 
 if __name__ == "__main__":
