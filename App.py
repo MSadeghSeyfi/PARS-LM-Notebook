@@ -199,12 +199,7 @@ class App:
             'optimal_chunks': sum(1 for chunk in chunks if 200 <= len(chunk) <= 1000),
         }
         
-        return analysis            
-
-    # جایگزین کردن initialize_rag
-    @st.cache_resource
-    def initialize_rag():
-        return PersianRAGSystem()
+        return analysis
 
     def display_app(self):
         st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
@@ -237,7 +232,7 @@ class App:
             progress_bar.progress(75)
             status_text.text("در حال ایجاد بردارهای embedding...")
 
-            rag_system = self.initialize_rag()
+            rag_system = get_rag_system()
             rag_system.add_documents(text_chunks)
 
             progress_bar.progress(100)
@@ -246,6 +241,11 @@ class App:
             
             # Clean up temporary file
             file_path.unlink()                     
+
+# خارج از کلاس App
+@st.cache_resource
+def get_rag_system():
+    return PersianRAGSystem()
 
 if __name__ == "__main__":
     app = App()
