@@ -1,7 +1,6 @@
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.memory import StreamlitChatMessageHistory
-from langchain_cohere import ChatCohere
 
 class PARSLMNOTEBOOK:
     def __init__(self, language='fa'):
