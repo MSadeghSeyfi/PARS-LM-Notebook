@@ -177,30 +177,30 @@ class App:
             if processed_chunk:
                 final_chunks.append(processed_chunk)
         
-        # 9. اطلاعات آماری
-        st.write(f"📊 آمار تقسیم‌بندی:")
-        st.write(f"   • تعداد کل چانک‌ها: {len(final_chunks)}")
-        st.write(f"   • متوسط طول چانک: {sum(len(chunk) for chunk in final_chunks) // len(final_chunks) if final_chunks else 0} کاراکتر")
-        st.write(f"   • کوتاه‌ترین چانک: {min(len(chunk) for chunk in final_chunks) if final_chunks else 0} کاراکتر")
-        st.write(f"   • بلندترین چانک: {max(len(chunk) for chunk in final_chunks) if final_chunks else 0} کاراکتر")
+        # # 9. اطلاعات آماری
+        # st.write(f"📊 آمار تقسیم‌بندی:")
+        # st.write(f"   • تعداد کل چانک‌ها: {len(final_chunks)}")
+        # st.write(f"   • متوسط طول چانک: {sum(len(chunk) for chunk in final_chunks) // len(final_chunks) if final_chunks else 0} کاراکتر")
+        # st.write(f"   • کوتاه‌ترین چانک: {min(len(chunk) for chunk in final_chunks) if final_chunks else 0} کاراکتر")
+        # st.write(f"   • بلندترین چانک: {max(len(chunk) for chunk in final_chunks) if final_chunks else 0} کاراکتر")
         
         return final_chunks
 
-    # 10. تابع اضافی برای بررسی کیفیت چانک‌ها
-    def analyze_chunks_quality(self, chunks: List[str]) -> dict:
-        """تحلیل کیفیت چانک‌های تولید شده"""
+    # # 10. تابع اضافی برای بررسی کیفیت چانک‌ها
+    # def analyze_chunks_quality(self, chunks: List[str]) -> dict:
+    #     """تحلیل کیفیت چانک‌های تولید شده"""
         
-        analysis = {
-            'total_chunks': len(chunks),
-            'avg_length': sum(len(chunk) for chunk in chunks) / len(chunks) if chunks else 0,
-            'min_length': min(len(chunk) for chunk in chunks) if chunks else 0,
-            'max_length': max(len(chunk) for chunk in chunks) if chunks else 0,
-            'empty_chunks': sum(1 for chunk in chunks if len(chunk.strip()) == 0),
-            'short_chunks': sum(1 for chunk in chunks if len(chunk) < 100),
-            'optimal_chunks': sum(1 for chunk in chunks if 200 <= len(chunk) <= 1000),
-        }
+    #     analysis = {
+    #         'total_chunks': len(chunks),
+    #         'avg_length': sum(len(chunk) for chunk in chunks) / len(chunks) if chunks else 0,
+    #         'min_length': min(len(chunk) for chunk in chunks) if chunks else 0,
+    #         'max_length': max(len(chunk) for chunk in chunks) if chunks else 0,
+    #         'empty_chunks': sum(1 for chunk in chunks if len(chunk.strip()) == 0),
+    #         'short_chunks': sum(1 for chunk in chunks if len(chunk) < 100),
+    #         'optimal_chunks': sum(1 for chunk in chunks if 200 <= len(chunk) <= 1000),
+    #     }
         
-        return analysis
+    #     return analysis
     
     # def Grok_API_key(self):
     #     api_key = st.sidebar.text_input("Grok API Key", type="password")
@@ -208,6 +208,20 @@ class App:
     #         st.info("Please enter Grok API key to continue.")
     #         st.stop()
     #     return api_key
+
+    def extract_think_and_clean_answer(self, text: str) -> tuple[str, str]:
+        """
+        از متن کامل خروجی مدل، محتوای داخل <think> را جدا می‌کند
+        و متن باقی‌مانده را به‌عنوان پاسخ اصلی برمی‌گرداند.
+        """
+        # استخراج محتوای داخل <think>...</think>
+        think_match = re.search(r'<think>(.*?)</think>', text, flags=re.DOTALL)
+        think_text = think_match.group(1).strip() if think_match else None
+
+        # حذف کل تگ <think> از متن
+        cleaned_answer = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+
+        return think_text, cleaned_answer
 
     def display_app(self):
         st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
@@ -233,25 +247,25 @@ class App:
             
             # ✅ مرحله جدید: تقسیم متن به چانک‌ها
             progress_bar.progress(50)
-            status_text.text("در حال تقسیم متن به بخش‌های کوچکتر...")
+            #status_text.text("در حال تقسیم متن به بخش‌های کوچکتر...")
 
             #  # Display extracted text
-            st.subheader("متن استخراج‌شده:")
-            st.text_area("متن", extracted_text, height=400)
+            #st.subheader("متن استخراج‌شده:")
+            #st.text_area("متن", extracted_text, height=400)
 
             text_chunks = self.advanced_persian_chunking(extracted_text)
 
             progress_bar.progress(75)
-            status_text.text("در حال ایجاد بردارهای embedding...")
+            #status_text.text("در حال ایجاد بردارهای embedding...")
 
             rag_system = get_rag_system()
             rag_system.add_documents(text_chunks)
             
             progress_bar.progress(100)
-            status_text.text("سیستم RAG آماده است!")
+            #status_text.text("سیستم RAG آماده است!")
             
             # ✅ مرحله جدید: LLM Integration
-            st.subheader("💬 پرسش و پاسخ هوشمند")
+            st.subheader("💬 بپرس")
             
             # ایجاد session state برای تاریخچه
             if 'conversation_manager' not in st.session_state:
@@ -286,20 +300,32 @@ class App:
                         conversation_history=recent_history
                     )
                     
-                    # نمایش پاسخ
+                    # تمیز کردن پاسخ و استخراج تفکر مدل
+                    think_text, cleaned_answer = self.extract_think_and_clean_answer(response['answer'])
+
+                    # نمایش پاسخ اصلی
                     st.subheader("🎯 پاسخ:")
-                    st.write(response['answer'])
+                    # نمایش تفکر مدل در یک Expander با LTR
+                    if think_text:
+                        with st.expander("🧠 تفکر مدل (Model Reasoning)"):
+                            st.markdown(
+                                f"<div style='direction: ltr; text-align: left; font-family: monospace; white-space: pre-wrap;'>{think_text}</div>",
+                                unsafe_allow_html=True
+                            )
+                    st.write(cleaned_answer)
+                    #st.write(response['answer'])
+                    #st.write(f"keys : {response.keys()}")
                     
-                    # نمایش اطلاعات اضافی
-                    if 'model_info' in response:
-                        with st.expander("📊 جزئیات تولید پاسخ"):
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("منابع استفاده شده", response['sources_used'])
-                            with col2:
-                                st.metric("زمان تولید", f"{response['generation_time']}s")
-                            with col3:
-                                st.metric("توکن‌های کل", response['model_info']['tokens_used']['total_tokens'])
+                    # # نمایش اطلاعات اضافی
+                    # if 'model_info' in response:
+                    #     with st.expander("📊 جزئیات تولید پاسخ"):
+                    #         col1, col2, col3 = st.columns(3)
+                    #         with col1:
+                    #             st.metric("منابع استفاده شده", response['sources_used'])
+                    #         with col2:
+                    #             st.metric("زمان تولید", f"{response['generation_time']}s")
+                    #         with col3:
+                    #             st.metric("توکن‌های کل", response['model_info']['tokens_used']['total_tokens'])
                     
                     # نمایش منابع مرجع
                     if 'retrieval_context' in response and response['retrieval_context']:
@@ -319,9 +345,18 @@ class App:
             if st.session_state.conversation_manager.conversation_history:
                 with st.expander("📜 تاریخچه مکالمات"):
                     for i, exchange in enumerate(reversed(st.session_state.conversation_manager.conversation_history)):
-                        st.write(f"**سوال {len(st.session_state.conversation_manager.conversation_history)-i}:** {exchange['user']}")
-                        st.write(f"**پاسخ:** {exchange['assistant']}")
-                        st.divider()
+                        with st.expander(f"**سوال {len(st.session_state.conversation_manager.conversation_history)-i}:** {exchange['user']}"):
+                            think_text_h, cleaned_answer_h = self.extract_think_and_clean_answer(exchange['assistant'])
+
+                            if think_text_h:
+                                with st.expander("🧠 تفکر مدل (Model Reasoning)"):
+                                    st.markdown(
+                                        f"<div style='direction: ltr; text-align: left; font-family: monospace; white-space: pre-wrap;'>{think_text_h}</div>",
+                                        unsafe_allow_html=True
+                                    )
+
+                            st.write(f"**پاسخ:** {cleaned_answer_h}")
+                            st.divider()
             
             # Clean up temporary file
             file_path.unlink()                           

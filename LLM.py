@@ -16,15 +16,15 @@ class PersianLLMGenerator:
         
         # تنظیمات پیشرفته برای بهینه‌سازی فارسی
         self.generation_config = {
-            "temperature": 0.3,        # کاهش تصادفی برای دقت بیشتر
+            "temperature": 0.2,        # کاهش تصادفی برای دقت بیشتر
             "max_tokens": 2048,        # طول مناسب برای پاسخ‌های تفصیلی فارسی
             "top_p": 0.9,              # کنترل تنوع پاسخ
             "frequency_penalty": 0.1,   # جلوگیری از تکرار
             "presence_penalty": 0.1     # تشویق به تنوع محتوا
         }
         
-        print("✅ مولد LLM فارسی با موفقیت مقداردهی شد")
-        print(f"🤖 مدل: {self.model_name}")
+        # print("✅ مولد LLM فارسی با موفقیت مقداردهی شد")
+        # print(f"🤖 مدل: {self.model_name}")
 
     def _build_persian_prompt(self, query: str, retrieved_chunks: List[Dict[str, Any]], 
                             conversation_history: Optional[List[Dict]] = None) -> str:
@@ -73,7 +73,7 @@ class PersianLLMGenerator:
                          conversation_history: Optional[List[Dict]] = None) -> Dict[str, Any]:
         """تولید پاسخ هوشمند بر اساس context بازیابی شده"""
         
-        print(f"🤖 در حال تولید پاسخ برای: {query[:50]}...")
+        # print(f"🤖 در حال تولید پاسخ برای: {query[:50]}...")
         
         # ساخت prompt
         prompt = self._build_persian_prompt(query, retrieved_chunks, conversation_history)
@@ -125,9 +125,9 @@ class PersianLLMGenerator:
                 ]
             }
             
-            print(f"✅ پاسخ با موفقیت تولید شد")
-            print(f"⏱️ زمان تولید: {result['generation_time']} ثانیه")
-            print(f"📊 توکن‌های استفاده شده: {result['model_info']['tokens_used']['total_tokens']}")
+            # print(f"✅ پاسخ با موفقیت تولید شد")
+            # print(f"⏱️ زمان تولید: {result['generation_time']} ثانیه")
+            # print(f"📊 توکن‌های استفاده شده: {result['model_info']['tokens_used']['total_tokens']}")
             
             return result
             
@@ -144,7 +144,7 @@ class PersianLLMGenerator:
                       conversation_history: Optional[List[Dict]] = None) -> Dict[str, Any]:
         """پردازش کامل سوال با سیستم RAG"""
         
-        print(f"🔄 پردازش سوال RAG: {query}")
+        # print(f"🔄 پردازش سوال RAG: {query}")
         
         try:
             # مرحله 1: بازیابی اسناد مرتبط
