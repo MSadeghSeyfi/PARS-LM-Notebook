@@ -1,26 +1,117 @@
-import requests
+from groq import Groq
+import os
 
-url = 'https://api.jina.ai/v1/embeddings'
-headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P'
-}
-
-data = {
-    "model": "jina-embeddings-v3",
-    "task": "text-matching",
-    "input": [
-        "Organic skincare for sensitive skin with aloe vera and chamomile: Imagine the soothing embrace of nature with our organic skincare range, crafted specifically for sensitive skin. Infused with the calming properties of aloe vera and chamomile, each product provides gentle nourishment and protection. Say goodbye to irritation and hello to a glowing, healthy complexion.",
-        "Bio-Hautpflege für empfindliche Haut mit Aloe Vera und Kamille: Erleben Sie die wohltuende Wirkung unserer Bio-Hautpflege, speziell für empfindliche Haut entwickelt. Mit den beruhigenden Eigenschaften von Aloe Vera und Kamille pflegen und schützen unsere Produkte Ihre Haut auf natürliche Weise. Verabschieden Sie sich von Hautirritationen und genießen Sie einen strahlenden Teint.",
-        "Cuidado de la piel orgánico para piel sensible con aloe vera y manzanilla: Descubre el poder de la naturaleza con nuestra línea de cuidado de la piel orgánico, diseñada especialmente para pieles sensibles. Enriquecidos con aloe vera y manzanilla, estos productos ofrecen una hidratación y protección suave. Despídete de las irritaciones y saluda a una piel radiante y saludable.",
-        "针对敏感肌专门设计的天然有机护肤产品：体验由芦荟和洋甘菊提取物带来的自然呵护。我们的护肤产品特别为敏感肌设计，温和滋润，保护您的肌肤不受刺激。让您的肌肤告别不适，迎来健康光彩。",
-        "新しいメイクのトレンドは鮮やかな色と革新的な技術に焦点を当てています: 今シーズンのメイクアップトレンドは、大胆な色彩と革新的な技術に注目しています。ネオンアイライナーからホログラフィックハイライターまで、クリエイティビティを解き放ち、毎回ユニークなルックを演出しましょう。"
+def test_groq_qwen():
+    """تست API شرکت Groq با مدل qwen3-32b"""
+    
+    # تنظیم API Key
+    API_KEY = "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"  # جایگزین با کلید واقعی
+    
+    # ایجاد کلاینت Groq
+    client = Groq(api_key=API_KEY)
+    
+    # تست‌های مختلف فارسی
+    test_messages = [
+        {
+            "name": "تست پاسخ ساده فارسی",
+            "prompt": "سلام! لطفاً خودت را معرفی کن و بگو چه کاری می‌توانی انجام دهی؟"
+        },
+        {
+            "name": "تست تحلیل متن فارسی", 
+            "prompt": "این جمله را تحلیل کن: 'هوش مصنوعی آینده فناوری است.' نکات کلیدی چیست؟"
+        },
+        {
+            "name": "تست ترجمه",
+            "prompt": "این متن انگلیسی را به فارسی ترجمه کن: 'Artificial Intelligence is transforming the world'"
+        },
+        {
+            "name": "تست خلاصه‌سازی",
+            "prompt": "این متن را خلاصه کن: 'تکنولوژی هوش مصنوعی در سال‌های اخیر پیشرفت‌های چشمگیری داشته است. از پردازش زبان طبیعی گرفته تا بینایی کامپیوتر، این فناوری در حال تغییر دادن نحوه زندگی ما است.'"
+        }
     ]
-}
+    
+    print("🚀 شروع تست API Groq با مدل qwen3-32b\n")
+    print("="*50)
+    
+    for i, test in enumerate(test_messages, 1):
+        try:
+            print(f"\n📝 تست {i}: {test['name']}")
+            print(f"سوال: {test['prompt']}")
+            print("-" * 30)
+            
+            # ارسال درخواست به API
+            response = client.chat.completions.create(
+                model="qwen/qwen3-32b",  # مدل مورد نظر
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": "تو یک دستیار هوشمند هستی که به زبان فارسی پاسخ می‌دهی. پاسخ‌هایت دقیق، مفید و مفصل باشند."
+                    },
+                    {
+                        "role": "user", 
+                        "content": test['prompt']
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=1000,
+                top_p=1,
+                stream=False
+            )
+            
+            # نمایش پاسخ
+            answer = response.choices[0].message.content
+            print(f"✅ پاسخ: {answer}")
+            
+            # اطلاعات اضافی
+            print(f"📊 تعداد توکن‌های استفاده شده: {response.usage.total_tokens}")
+            print(f"⏱️ مدت زمان: {response.usage}")
+            
+        except Exception as e:
+            print(f"❌ خطا در تست {i}: {str(e)}")
+        
+        print("="*50)
+    
+    print("\n🎯 تست‌ها تمام شد!")
 
-response = requests.post(url, headers=headers, json=data)
-response.raise_for_status()
-result = response.json()
+def simple_chat_test():
+    """تست ساده چت با مدل"""
+    
+    API_KEY = "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"
+    client = Groq(api_key=API_KEY)
+    
+    print("💬 تست چت ساده - سوال خود را بپرسید:")
+    
+    while True:
+        user_input = input("\nشما: ")
+        if user_input.lower() in ['exit', 'خروج', 'quit']:
+            break
+            
+        try:
+            response = client.chat.completions.create(
+                model="qwen/qwen3-32b",
+                messages=[
+                    {"role": "user", "content": user_input}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            
+            print(f"🤖 مدل: {response.choices[0].message.content}")
+            
+        except Exception as e:
+            print(f"❌ خطا: {e}")
 
-print(result["data"][0]["embedding"])
-
+if __name__ == "__main__":
+    # انتخاب نوع تست
+    print("انتخاب کنید:")
+    print("1. تست کامل")
+    print("2. تست چت ساده")
+    
+    choice = input("انتخاب (1 یا 2): ")
+    
+    if choice == "1":
+        test_groq_qwen()
+    elif choice == "2":
+        simple_chat_test()
+    else:
+        print("انتخاب نامعتبر!")
