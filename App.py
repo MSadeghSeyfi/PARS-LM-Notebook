@@ -204,7 +204,7 @@ class App:
     # جایگزین کردن initialize_rag
     @st.cache_resource
     def initialize_rag():
-        return PersianRAGSystem(jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P)
+        return PersianRAGSystem()
 
     def display_app(self):
         st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
