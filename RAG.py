@@ -1,6 +1,7 @@
 import numpy as np
 import requests
 import faiss
+import streamlit as st
 import pickle
 from typing import List, Dict, Any
 import time
@@ -24,15 +25,15 @@ class PersianRAGSystem:
         self.vector_index = None
         self.chunk_metadata = []
         
-        print("✅ سیستم RAG با API Jina مقداردهی شد")
-        print(f"🌐 پشتیبانی چندزبانه: فارسی، انگلیسی، عربی")
+        st.write("✅ سیستم RAG با API Jina مقداردهی شد")
+        st.write(f"🌐 پشتیبانی چندزبانه: فارسی، انگلیسی، عربی")
 
-    def _call_jina_api(self, texts: List[str], task: str = "retrieval.query") -> List[List[float]]:
+    def _call_jina_api(self, texts: List[str], task: str = "retrieval.passage") -> List[List[float]]:
         """فراخوانی API Jina برای تولید embeddings"""
         
         headers = {
         'Content-Type': 'application/json',  # ✅ تغییر به single quote
-        'Authorization': f'Bearer jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P'  # ✅ تغییر به single quote
+        'Authorization': f'Bearer jina_f79a39580af2409c9192df3695351ff6-Up2UwFsKAGW1Az1UoKfK2-bJGzA'  # ✅ تغییر به single quote
         }
         
         embeddings = []
@@ -42,7 +43,7 @@ class PersianRAGSystem:
             batch = texts[i:i + batch_size]
             
             data = {
-                "model": "jina-embeddings-v4",
+                "model": "jina-embeddings-v3",
                 "task": task,
                 "input": texts,
             }
@@ -59,7 +60,7 @@ class PersianRAGSystem:
                 time.sleep(0.1)
                 
             except requests.exceptions.RequestException as e:
-                print(f"❌ خطا در API call: {e}")
+                st.write(f"❌ خطا در API call: {e}")
                 raise
         
         return embeddings
@@ -67,10 +68,10 @@ class PersianRAGSystem:
     def create_embeddings(self, chunks: List[str]) -> np.ndarray:
         """تبدیل چانک‌ها به بردارهای embedding"""
         
-        print(f"🔄 در حال تولید embeddings برای {len(chunks)} چانک...")
+        st.write(f"🔄 در حال تولید embeddings برای {len(chunks)} چانک...")
         
         # فراخوانی API Jina
-        embeddings_list = self._call_jina_api(chunks, task="retrieval.query")
+        embeddings_list = self._call_jina_api(chunks, task="retrieval.passage")
         
         # تبدیل به numpy array
         embeddings = np.array(embeddings_list, dtype=np.float32)
@@ -79,15 +80,15 @@ class PersianRAGSystem:
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         embeddings = embeddings / norms
         
-        print(f"✅ تولید embeddings با موفقیت انجام شد")
-        print(f"📐 ابعاد هر embedding: {embeddings.shape[1]}")
+        st.write(f"✅ تولید embeddings با موفقیت انجام شد")
+        st.write(f"📐 ابعاد هر embedding: {embeddings.shape[1]}")
         
         return embeddings
 
     def build_vector_index(self, embeddings: np.ndarray):
         """ساخت ایندکس FAISS برای جستجوی سریع"""
         
-        print("🏗️ در حال ساخت ایندکس برداری...")
+        st.write("🏗️ در حال ساخت ایندکس برداری...")
         
         dimension = embeddings.shape[1]
         
@@ -100,7 +101,7 @@ class PersianRAGSystem:
             self.vector_index.train(embeddings)
         
         self.vector_index.add(embeddings)
-        print(f"✅ ایندکس برداری ساخته شد: {self.vector_index.ntotal} بردار")
+        st.write(f"✅ ایندکس برداری ساخته شد: {self.vector_index.ntotal} بردار")
 
     def add_documents(self, chunks: List[str]):
         """اضافه کردن اسناد به سیستم RAG"""
@@ -119,7 +120,7 @@ class PersianRAGSystem:
         self.embeddings = self.create_embeddings(chunks)
         self.build_vector_index(self.embeddings)
         
-        print(f"🎯 {len(chunks)} سند با موفقیت به سیستم اضافه شد")
+        st.write(f"🎯 {len(chunks)} سند با موفقیت به سیستم اضافه شد")
 
     def search_similar_chunks(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """جستجوی چانک‌های مشابه برای سوال"""
@@ -127,10 +128,10 @@ class PersianRAGSystem:
         if self.vector_index is None:
             raise ValueError("❌ ابتدا باید اسناد را به سیستم اضافه کنید")
         
-        print(f"🔍 جستجو برای: {query[:50]}...")
+        st.write(f"🔍 جستجو برای: {query[:50]}...")
         
         # تبدیل سوال به embedding از طریق API
-        query_embeddings_list = self._call_jina_api([query], task="retrieval.query")  # ✅ تغییر task
+        query_embeddings_list = self._call_jina_api([query], task="retrieval.passage")  # ✅ تغییر task
         query_embedding = np.array(query_embeddings_list, dtype=np.float32)
         
         # نرمال‌سازی
@@ -152,7 +153,7 @@ class PersianRAGSystem:
                     'metadata': self.chunk_metadata[idx]
                 })
         
-        print(f"✅ {len(results)} نتیجه مرتبط یافت شد")
+        st.write(f"✅ {len(results)} نتیجه مرتبط یافت شد")
         return results
 
     def save_system(self, filepath: str):
@@ -170,7 +171,7 @@ class PersianRAGSystem:
         if self.vector_index is not None:
             faiss.write_index(self.vector_index, filepath.replace('.pkl', '.faiss'))
         
-        print(f"💾 سیستم در {filepath} ذخیره شد")
+        st.write(f"💾 سیستم در {filepath} ذخیره شد")
 
     def load_system(self, filepath: str):
         """بارگذاری سیستم RAG ذخیره شده"""
@@ -187,8 +188,8 @@ class PersianRAGSystem:
         faiss_path = filepath.replace('.pkl', '.faiss')
         try:
             self.vector_index = faiss.read_index(faiss_path)
-            print(f"📂 سیستم از {filepath} بارگذاری شد")
+            st.write(f"📂 سیستم از {filepath} بارگذاری شد")
         except:
-            print("⚠️ فایل ایندکس یافت نشد، ایندکس مجدد ساخته می‌شود...")
+            st.write("⚠️ فایل ایندکس یافت نشد، ایندکس مجدد ساخته می‌شود...")
             if self.embeddings is not None:
                 self.build_vector_index(self.embeddings)
