@@ -1,12 +1,10 @@
 import streamlit as st
 from langchain_community.document_loaders import PyPDFium2Loader
 from pathlib import Path
-
+from RAG_System import PersianRAGSystem
 
 class App:
     def __init__(self):
-        st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
-        st.title("Persian NotebookLM 📚")
         self.translations = {
             'fa' : {
                 'change_language': 'تغییر زبان',
@@ -27,13 +25,10 @@ class App:
         if 'language' not in st.session_state:
             st.session_state.language = 'fa'
 
-        self.language = st.session_state.language
-
         if st.button(self.translations[st.session_state.language]['change_language']):
             st.session_state.language = 'en' if st.session_state.language == 'fa' else "fa"
-                
-        st.write(self.translations[self.language]['current_language'])
 
+        self.language = st.session_state.language
         self.text_align, self.direction = self.get_text_alignment()
         self.inject_css()
         self.model = None
@@ -101,7 +96,15 @@ class App:
             except Exception as e:
                 return f"Error extracting text: {str(e)}"
                 
+    @st.cache_resource
+    def initialize_rag():
+        JINA_API_KEY = st.secrets["JINA_API_KEY"]
+        return PersianRAGSystem(JINA_API_KEY)
+                
     def display_app(self):
+        st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
+        st.title("Persian NotebookLM 📚")
+        st.write(self.translations[self.language]['current_language'])
         st.header(self.translations[self.language]['app_title'], divider="red") 
         uploaded_file = st.file_uploader(f"{self.translations[self.language]['select_file']} PDF", type=["pdf"])
         
@@ -120,9 +123,17 @@ class App:
             status_text.text("استخراج متن با موفقیت انجام شد!")
             
             #  # Display extracted text
-            # st.subheader("متن استخراج‌شده:")
-            # st.text_area("متن", extracted_text, height=400)
+            #st.subheader("متن استخراج‌شده:")
+            #st.text_area("متن", extracted_text, height=400)
+
+            rag_system = self.initialize_rag()
+
+            rag_system.add_documents(extracted_text)
             
+            question = st.text_input("سوال خود را بپرسید:")
+            if question:
+                results = rag_system.query(question)
+                st.text_area("متن", results, height=400)
             # Clean up temporary file
             file_path.unlink()                     
 
