@@ -1,7 +1,9 @@
 import streamlit as st
 from langchain_community.document_loaders import PyPDFium2Loader
 from pathlib import Path
-from RAG_System import PersianRAGSystem
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from typing import List
+import re
 
 class App:
     def __init__(self):
@@ -95,11 +97,108 @@ class App:
                 return text
             except Exception as e:
                 return f"Error extracting text: {str(e)}"
-                
-    @st.cache_resource
-    def initialize_rag():
-        JINA_API_KEY = st.secrets["JINA_API_KEY"]
-        return PersianRAGSystem(JINA_API_KEY)
+        
+
+    def advanced_persian_chunking(self, text: str) -> List[str]:
+        """
+        پیاده‌سازی پیشرفته تقسیم متن فارسی به چانک‌های بهینه
+        """
+        
+        # 1. پیش‌پردازش اولیه متن
+        def preprocess_text(text: str) -> str:
+            # حذف فاصله‌های اضافی
+            text = re.sub(r'\s+', ' ', text)
+            # تنظیم فاصله‌ها قبل و بعد علائم نگارشی فارسی
+            text = re.sub(r'\s*([.!?؟:؛،])\s*', r'\1 ', text)
+            # حذف خطوط خالی اضافی
+            text = re.sub(r'\n\s*\n', '\n\n', text)
+            return text.strip()
+        
+        # 2. تعریف جداکننده‌های بهینه برای فارسی
+        persian_separators = [
+            "\n\n\n",          # پاراگراف‌های جدا
+            "\n\n",            # پاراگراف‌ها
+            "\n",              # خطوط جدید
+            "؟",               # علامت سوال فارسی
+            "!",               # علامت تعجب
+            ".",               # نقطه
+            "؛",               # نقطه ویرگول فارسی
+            ":",               # دو نقطه
+            "،",               # ویرگول فارسی
+            ",",               # ویرگول انگلیسی
+            " و ",             # حرف ربط فارسی
+            " که ",            # کلمات ربط فارسی
+            " در ",
+            " از ",
+            " به ",
+            " با ",
+            " ",               # فاصله
+            ""                 # کاراکتر خالی
+        ]
+        
+        # 3. تنظیمات بهینه برای متن فارسی
+        chunk_size = 800       # اندازه مناسب برای فارسی
+        chunk_overlap = 150    # overlap کافی برای حفظ context
+        
+        # 4. ایجاد text splitter بهینه
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=len,
+            separators=persian_separators,
+            keep_separator=True,    # حفظ جداکننده‌ها
+            add_start_index=True,   # اضافه کردن ایندکس شروع
+        )
+        
+        # 5. پیش‌پردازش متن
+        processed_text = preprocess_text(text)
+        
+        # 6. تقسیم به چانک‌ها
+        chunks = text_splitter.split_text(processed_text)
+        
+        # 7. پس‌پردازش چانک‌ها
+        def postprocess_chunk(chunk: str) -> str:
+            # حذف فاصله‌های ابتدا و انتها
+            chunk = chunk.strip()
+            # اطمینان از وجود حداقل طول
+            if len(chunk) < 50:
+                return None
+            # اضافه کردن نقطه در صورت نیاز
+            if not chunk.endswith(('.', '!', '؟', ':', '؛')):
+                chunk += '.'
+            return chunk
+        
+        # 8. فیلتر و بهینه‌سازی چانک‌ها
+        final_chunks = []
+        for chunk in chunks:
+            processed_chunk = postprocess_chunk(chunk)
+            if processed_chunk:
+                final_chunks.append(processed_chunk)
+        
+        # 9. اطلاعات آماری
+        st.write(f"📊 آمار تقسیم‌بندی:")
+        st.write(f"   • تعداد کل چانک‌ها: {len(final_chunks)}")
+        st.write(f"   • متوسط طول چانک: {sum(len(chunk) for chunk in final_chunks) // len(final_chunks) if final_chunks else 0} کاراکتر")
+        st.write(f"   • کوتاه‌ترین چانک: {min(len(chunk) for chunk in final_chunks) if final_chunks else 0} کاراکتر")
+        st.write(f"   • بلندترین چانک: {max(len(chunk) for chunk in final_chunks) if final_chunks else 0} کاراکتر")
+        
+        return final_chunks
+
+    # 10. تابع اضافی برای بررسی کیفیت چانک‌ها
+    def analyze_chunks_quality(self, chunks: List[str]) -> dict:
+        """تحلیل کیفیت چانک‌های تولید شده"""
+        
+        analysis = {
+            'total_chunks': len(chunks),
+            'avg_length': sum(len(chunk) for chunk in chunks) / len(chunks) if chunks else 0,
+            'min_length': min(len(chunk) for chunk in chunks) if chunks else 0,
+            'max_length': max(len(chunk) for chunk in chunks) if chunks else 0,
+            'empty_chunks': sum(1 for chunk in chunks if len(chunk.strip()) == 0),
+            'short_chunks': sum(1 for chunk in chunks if len(chunk) < 100),
+            'optimal_chunks': sum(1 for chunk in chunks if 200 <= len(chunk) <= 1000),
+        }
+        
+        return analysis            
                 
     def display_app(self):
         st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
@@ -119,21 +218,18 @@ class App:
             
             extracted_text = self.extract_text_from_pdf(file_path)
             
-            progress_bar.progress(100)
-            status_text.text("استخراج متن با موفقیت انجام شد!")
-            
+            # ✅ مرحله جدید: تقسیم متن به چانک‌ها
+            progress_bar.progress(50)
+            status_text.text("در حال تقسیم متن به بخش‌های کوچکتر...")
+
             #  # Display extracted text
-            #st.subheader("متن استخراج‌شده:")
-            #st.text_area("متن", extracted_text, height=400)
+            st.subheader("متن استخراج‌شده:")
+            st.text_area("متن", extracted_text, height=400)
 
-            rag_system = self.initialize_rag()
+            text_chunks = self.advanced_persian_chunking(extracted_text)
 
-            rag_system.add_documents(extracted_text)
+            st.write(text_chunks)
             
-            question = st.text_input("سوال خود را بپرسید:")
-            if question:
-                results = rag_system.query(question)
-                st.text_area("متن", results, height=400)
             # Clean up temporary file
             file_path.unlink()                     
 
