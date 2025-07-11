@@ -4,13 +4,16 @@ import faiss
 import pickle
 from typing import List, Dict, Any
 import json
+import requests
 
 class PersianRAGSystem:
     """سیستم RAG بهینه شده برای زبان فارسی"""
     
-    def __init__(self, jina_api_key: str = None):
+    def __init__(self, jina_api_key: str = "jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu"):
         """مقداردهی اولیه سیستم RAG"""
-        
+        self.jina_api_key = jina_api_key
+        self.api_url = "jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P"
+
         # بارگذاری مدل embedding
         self.embedding_model = SentenceTransformer('jinaai/jina-embeddings-v3', 
                                                    trust_remote_code=True)
@@ -33,6 +36,10 @@ class PersianRAGSystem:
         
         print(f"🔄 در حال تولید embeddings برای {len(chunks)} چانک...")
         
+        headers = {
+            "Authorization": f"Bearer {self.jina_api_key}",
+            "Content-Type": "application/json"
+        }
         # تولید embeddings
         embeddings = self.embedding_model.encode(
             chunks,
