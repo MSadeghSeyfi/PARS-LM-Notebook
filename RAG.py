@@ -27,12 +27,12 @@ class PersianRAGSystem:
         print("✅ سیستم RAG با API Jina مقداردهی شد")
         print(f"🌐 پشتیبانی چندزبانه: فارسی، انگلیسی، عربی")
 
-    def _call_jina_api(self, texts: List[str], task: str = "text-matching") -> List[List[float]]:
+    def _call_jina_api(self, texts: List[str], task: str = "retrieval.query") -> List[List[float]]:
         """فراخوانی API Jina برای تولید embeddings"""
         
         headers = {
         'Content-Type': 'application/json',  # ✅ تغییر به single quote
-        'Authorization': f'Bearer {self.jina_api_key}'  # ✅ تغییر به single quote
+        'Authorization': f'Bearer jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P'  # ✅ تغییر به single quote
         }
         
         embeddings = []
@@ -42,13 +42,13 @@ class PersianRAGSystem:
             batch = texts[i:i + batch_size]
             
             data = {
-                "model": "jina-embeddings-v3",
+                "model": "jina-embeddings-v4",
                 "task": task,
                 "input": texts,
             }
             
             try:
-                response = requests.post(self.api_url, headers=headers, data=json.dumps(data), timeout=30)
+                response = requests.post(self.api_url, headers=headers, json=data)
                 response.raise_for_status()
                 
                 result = response.json()
@@ -70,7 +70,7 @@ class PersianRAGSystem:
         print(f"🔄 در حال تولید embeddings برای {len(chunks)} چانک...")
         
         # فراخوانی API Jina
-        embeddings_list = self._call_jina_api(chunks, task="text-matching")
+        embeddings_list = self._call_jina_api(chunks, task="retrieval.query")
         
         # تبدیل به numpy array
         embeddings = np.array(embeddings_list, dtype=np.float32)
@@ -130,7 +130,7 @@ class PersianRAGSystem:
         print(f"🔍 جستجو برای: {query[:50]}...")
         
         # تبدیل سوال به embedding از طریق API
-        query_embeddings_list = self._call_jina_api([query], task="text-matching")  # ✅ تغییر task
+        query_embeddings_list = self._call_jina_api([query], task="retrieval.query")  # ✅ تغییر task
         query_embedding = np.array(query_embeddings_list, dtype=np.float32)
         
         # نرمال‌سازی
