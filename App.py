@@ -242,10 +242,10 @@ class App:
             # Clean up temporary file
             file_path.unlink()                     
 
-# خارج از کلاس App
 @st.cache_resource
 def get_rag_system():
-    return PersianRAGSystem()
+    JINA_API_KEY = st.secrets["JINA_API_KEY"]  # ✅ دریافت API key
+    return PersianRAGSystem(JINA_API_KEY)      # ✅ پاس دادن API key
 
 if __name__ == "__main__":
     app = App()

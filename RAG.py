@@ -1,53 +1,84 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
+import requests
 import faiss
 import pickle
 from typing import List, Dict, Any
+import time
 import json
-import requests
 
 class PersianRAGSystem:
-    """سیستم RAG بهینه شده برای زبان فارسی"""
+    """سیستم RAG بهینه شده برای زبان فارسی با API Jina"""
     
-    def __init__(self, jina_api_key: str = "jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu"):
+    def __init__(self, jina_api_key: str):
         """مقداردهی اولیه سیستم RAG"""
-        self.jina_api_key = jina_api_key
-        self.api_url = "jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P"
-
-        # بارگذاری مدل embedding
-        self.embedding_model = SentenceTransformer('jinaai/jina-embeddings-v3', 
-                                                   trust_remote_code=True)
         
-        # تنظیمات مدل برای چندزبانه بودن
-        self.embedding_model.max_seq_length = 8192  # طول بیشتر برای متون فارسی
+        if not jina_api_key:
+            raise ValueError("❌ API Key مورد نیاز است")
+            
+        self.jina_api_key = jina_api_key
+        self.api_url = "https://api.jina.ai/v1/embeddings"
         
         # متغیرهای ذخیره‌سازی
-        self.chunks = []           # لیست چانک‌های متنی
-        self.embeddings = None     # ماتریس embeddings
-        self.vector_index = None   # ایندکس FAISS
-        self.chunk_metadata = []   # اطلاعات اضافی چانک‌ها
+        self.chunks = []
+        self.embeddings = None
+        self.vector_index = None
+        self.chunk_metadata = []
         
-        print("✅ سیستم RAG با موفقیت مقداردهی شد")
-        print(f"📊 مدل embedding: jina-embeddings-v3")
+        print("✅ سیستم RAG با API Jina مقداردهی شد")
         print(f"🌐 پشتیبانی چندزبانه: فارسی، انگلیسی، عربی")
+
+    def _call_jina_api(self, texts: List[str], task: str = "retrieval.passage") -> List[List[float]]:
+        """فراخوانی API Jina برای تولید embeddings"""
+        
+        headers = {
+            "Authorization": f"Bearer {self.jina_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        embeddings = []
+        batch_size = 10  # پردازش دسته‌ای برای کارایی بهتر
+        
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            
+            data = {
+                "model": "jina-embeddings-v3",
+                "task": task,
+                "input": batch,
+                "encoding_format": "float"
+            }
+            
+            try:
+                response = requests.post(self.api_url, headers=headers, json=data, timeout=30)
+                response.raise_for_status()
+                
+                result = response.json()
+                for item in result["data"]:
+                    embeddings.append(item["embedding"])
+                    
+                # تاخیر کوتاه برای جلوگیری از rate limiting
+                time.sleep(0.1)
+                
+            except requests.exceptions.RequestException as e:
+                print(f"❌ خطا در API call: {e}")
+                raise
+        
+        return embeddings
 
     def create_embeddings(self, chunks: List[str]) -> np.ndarray:
         """تبدیل چانک‌ها به بردارهای embedding"""
         
         print(f"🔄 در حال تولید embeddings برای {len(chunks)} چانک...")
         
-        headers = {
-            "Authorization": f"Bearer {self.jina_api_key}",
-            "Content-Type": "application/json"
-        }
-        # تولید embeddings
-        embeddings = self.embedding_model.encode(
-            chunks,
-            batch_size=8,           # batch کوچک برای مدیریت حافظه
-            show_progress_bar=True,
-            convert_to_numpy=True,
-            normalize_embeddings=True  # نرمال‌سازی برای بهبود جستجو
-        )
+        # فراخوانی API Jina
+        embeddings_list = self._call_jina_api(chunks, task="retrieval.passage")
+        
+        # تبدیل به numpy array
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        
+        # نرمال‌سازی
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        embeddings = embeddings / norms
         
         print(f"✅ تولید embeddings با موفقیت انجام شد")
         print(f"📐 ابعاد هر embedding: {embeddings.shape[1]}")
@@ -59,31 +90,24 @@ class PersianRAGSystem:
         
         print("🏗️ در حال ساخت ایندکس برداری...")
         
-        # تعیین نوع ایندکس بر اساس تعداد چانک‌ها
         dimension = embeddings.shape[1]
         
         if len(embeddings) < 1000:
-            # برای داده‌های کم: استفاده از IndexFlatIP (دقیق‌ترین)
             self.vector_index = faiss.IndexFlatIP(dimension)
         else:
-            # برای داده‌های زیاد: استفاده از IndexIVFFlat (سریع‌تر)
             nlist = min(100, len(embeddings) // 10)
             quantizer = faiss.IndexFlatIP(dimension)
             self.vector_index = faiss.IndexIVFFlat(quantizer, dimension, nlist)
-            self.vector_index.train(embeddings.astype('float32'))
+            self.vector_index.train(embeddings)
         
-        # اضافه کردن embeddings به ایندکس
-        self.vector_index.add(embeddings.astype('float32'))
-        
+        self.vector_index.add(embeddings)
         print(f"✅ ایندکس برداری ساخته شد: {self.vector_index.ntotal} بردار")
 
     def add_documents(self, chunks: List[str]):
         """اضافه کردن اسناد به سیستم RAG"""
         
-        # ذخیره چانک‌ها
         self.chunks = chunks
         
-        # ایجاد metadata برای هر چانک
         self.chunk_metadata = [
             {
                 'chunk_id': i,
@@ -93,10 +117,7 @@ class PersianRAGSystem:
             for i, chunk in enumerate(chunks)
         ]
         
-        # تولید embeddings
         self.embeddings = self.create_embeddings(chunks)
-        
-        # ساخت ایندکس برداری
         self.build_vector_index(self.embeddings)
         
         print(f"🎯 {len(chunks)} سند با موفقیت به سیستم اضافه شد")
@@ -109,23 +130,21 @@ class PersianRAGSystem:
         
         print(f"🔍 جستجو برای: {query[:50]}...")
         
-        # تبدیل سوال به embedding
-        query_embedding = self.embedding_model.encode(
-            [query],
-            convert_to_numpy=True,
-            normalize_embeddings=True
-        )
+        # تبدیل سوال به embedding از طریق API
+        query_embeddings_list = self._call_jina_api([query], task="retrieval.query")
+        query_embedding = np.array(query_embeddings_list, dtype=np.float32)
+        
+        # نرمال‌سازی
+        norm = np.linalg.norm(query_embedding)
+        query_embedding = query_embedding / norm
         
         # جستجو در ایندکس
-        scores, indices = self.vector_index.search(
-            query_embedding.astype('float32'), 
-            top_k
-        )
+        scores, indices = self.vector_index.search(query_embedding, top_k)
         
         # آماده‌سازی نتایج
         results = []
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx >= 0:  # اطمینان از وجود ایندکس
+            if idx >= 0:
                 results.append({
                     'rank': i + 1,
                     'chunk_id': idx,
@@ -149,7 +168,6 @@ class PersianRAGSystem:
         with open(filepath, 'wb') as f:
             pickle.dump(system_data, f)
         
-        # ذخیره ایندکس FAISS
         if self.vector_index is not None:
             faiss.write_index(self.vector_index, filepath.replace('.pkl', '.faiss'))
         
@@ -165,9 +183,8 @@ class PersianRAGSystem:
         self.chunk_metadata = system_data['chunk_metadata']
         
         if system_data['embeddings']:
-            self.embeddings = np.array(system_data['embeddings'])
+            self.embeddings = np.array(system_data['embeddings'], dtype=np.float32)
             
-        # بارگذاری ایندکس FAISS
         faiss_path = filepath.replace('.pkl', '.faiss')
         try:
             self.vector_index = faiss.read_index(faiss_path)
