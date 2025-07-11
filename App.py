@@ -4,6 +4,7 @@ from pathlib import Path
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from typing import List
 import re
+from RAG import PersianRAGSystem
 
 class App:
     def __init__(self):
@@ -199,7 +200,12 @@ class App:
         }
         
         return analysis            
-                
+
+    # جایگزین کردن initialize_rag
+    @st.cache_resource
+    def initialize_rag():
+        return PersianRAGSystem(jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu-P)
+
     def display_app(self):
         st.set_page_config(page_title="Persian NotebookLM 📚", page_icon= "content/PARS-LM-NOTEBOOK.png")
         st.title("Persian NotebookLM 📚")
@@ -228,7 +234,15 @@ class App:
 
             text_chunks = self.advanced_persian_chunking(extracted_text)
 
-            st.write(text_chunks)
+            progress_bar.progress(75)
+            status_text.text("در حال ایجاد بردارهای embedding...")
+
+            rag_system = self.initialize_rag()
+            rag_system.add_documents(text_chunks)
+
+            progress_bar.progress(100)
+            status_text.text("سیستم RAG آماده است!")
+            st.write(rag_system)
             
             # Clean up temporary file
             file_path.unlink()                     
