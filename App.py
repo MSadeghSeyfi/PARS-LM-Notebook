@@ -244,7 +244,7 @@ class App:
 
 @st.cache_resource
 def get_rag_system():
-    JINA_API_KEY = st.secrets["JINA_API_KEY"]  # ✅ دریافت API key
+    JINA_API_KEY = "jina_1ac090bcde4744d38ee2f54741d32db2RctjQ_OIAEGoef8FR85UUquxpu"  # ✅ دریافت API key
     return PersianRAGSystem(JINA_API_KEY)      # ✅ پاس دادن API key
 
 if __name__ == "__main__":
